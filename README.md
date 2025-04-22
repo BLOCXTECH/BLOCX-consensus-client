@@ -6,7 +6,7 @@ BLOCX: Consensus Client
 
 * * *
 
-🧭 Overview
+ Overview
 -----------
 
 BLOCX is:
@@ -26,7 +26,7 @@ This fork includes protocol-level changes, configuration updates, and customized
 
 * * *
 
-🚀 What’s Different?
+ What’s Different?
 --------------------
 
 Compared to Lighthouse:
@@ -42,14 +42,14 @@ Compared to Lighthouse:
 
 * * *
 
-📚 Documentation
+ Documentation
 ----------------
 
 Coming soon: [BLOCX Docs](https://blocx.gitbook.io/blocx.) – includes validator setup, network parameters, node deployment, and FAQs.
 
 * * *
 
-⛓ Staking Deposit Contract
+ Staking Deposit Contract
 --------------------------
 
 The BLOCX mainnet recognizes:
@@ -60,7 +60,7 @@ as the official deposit contract for validators.
 
 * * *
 
-🛠 How to Build
+ How to Build
 ---------------
 
     git clone https://github.com/BLOCXTECH/blocx-consensus-client.git
@@ -70,10 +70,9 @@ as the official deposit contract for validators.
 
 * * *
 
-🙏 Credits
+ Credits
 ----------
 
 Original work by [Sigma Prime](https://sigmaprime.io/) on [Lighthouse](https://github.com/sigp/lighthouse).  
-Massive thanks to the Ethereum community for their pioneering efforts.
 
 * * *
