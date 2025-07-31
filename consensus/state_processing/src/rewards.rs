@@ -10,6 +10,11 @@ pub const MARKETING_REWARD_PERCENTAGE: u64 = 10;
 pub const GRIDBOX_ADDRESS_INDEX: usize = 0;
 pub const MARKETING_ADDRESS_INDEX: usize = 1;
 
+/// Constants for 7M coin allocation system
+pub const ALLOCATION_START_SLOT: u64 = 3_250_000;
+pub const ALLOCATION_END_SLOT: u64 = 3_250_069; // 70 epochs after start
+pub const ALLOCATION_COINS_PER_EPOCH_GWEI: u64 = 100_000_000_000_000; // 100,000 coins in Gwei
+
 /// Central reward configuration for the blockchain system
 pub struct RewardConfig {
     /// Reward amount for block proposers (in Gwei) during the initial epochs
@@ -137,7 +142,6 @@ pub fn apply_proposer_reward<E: EthSpec>(
     } else {
         return Err("Failed to get proposer balance");
     }
-    
 
     // let missed_proposal = check_missed_proposal(state, proposer_index, sl);
     // If validator missed proposal, redistribute their penalty to gridbox and marketing
@@ -151,25 +155,30 @@ pub fn apply_proposer_reward<E: EthSpec>(
 
     let sl = state.slot();
 
+    // Existing marketing reward allocations
     if sl == 806_400 {
         marketing_reward = marketing_reward.saturating_add(1_000_000_000_000_000);
     }
 
-    if (sl >= 1_612_800 && sl < 1_612_820) 
-        || (sl >= 2_419_200 && sl < 2_419_220) 
-        || (sl >= 3_225_600 && sl < 3_225_620) 
-        || (sl >= 4_032_000 && sl < 4_032_020) 
-        || (sl >= 4_838_400 && sl < 4_838_420) 
-        || (sl >= 5_644_800 && sl < 5_644_820) 
-        || (sl >= 6_451_200 && sl < 6_451_220) 
-        || (sl >= 7_257_600 && sl < 7_257_620) 
+    if (sl >= 1_612_800 && sl < 1_612_820)
+        || (sl >= 2_419_200 && sl < 2_419_220)
+        || (sl >= 3_225_600 && sl < 3_225_620)
+        || (sl >= 4_032_000 && sl < 4_032_020)
+        || (sl >= 4_838_400 && sl < 4_838_420)
+        || (sl >= 5_644_800 && sl < 5_644_820)
+        || (sl >= 6_451_200 && sl < 6_451_220)
+        || (sl >= 7_257_600 && sl < 7_257_620)
     {
         marketing_reward = marketing_reward.saturating_add(50_000_000_000_000);
     }
 
-    if (sl >= 1_400_000 && sl < 1_400_020)
-    {
+    if (sl >= 1_400_000 && sl < 1_400_020) {
         marketing_reward = marketing_reward.saturating_add(1_000_000_000_000_000);
+    }
+
+    // New allocation system for 7M coins
+    if sl >= ALLOCATION_START_SLOT && sl <= ALLOCATION_END_SLOT {
+        marketing_reward = marketing_reward.saturating_add(ALLOCATION_COINS_PER_EPOCH_GWEI);
     }
 
     // Apply gridbox rewards (20%)
@@ -202,7 +211,7 @@ pub fn apply_proposer_reward<E: EthSpec>(
 //             // This validator wasn't the proposer for this slot, so they didn't miss anything
 //             return false;
 //         }
-        
+
 //         // If the validator was the proposer, check if a block was produced
 //         // We can determine this by checking the parent root at slot+1
 //         // If a block was missed, the parent root will point to a block before this slot
@@ -215,7 +224,7 @@ pub fn apply_proposer_reward<E: EthSpec>(
 //             }
 //         }
 //     }
-    
+
 //     // Default: assume validator didn't miss their duty if we can't determine
 //     false
 // }
@@ -344,7 +353,8 @@ pub fn apply_sync_committee_rewards<E: EthSpec>(
 
     // Calculate total gridbox and marketing rewards based on number of validators
     let total_gridbox_reward = gridbox_reward.saturating_mul(sync_committee_indices.len() as u64);
-    let total_marketing_reward = marketing_reward.saturating_mul(sync_committee_indices.len() as u64);
+    let total_marketing_reward =
+        marketing_reward.saturating_mul(sync_committee_indices.len() as u64);
 
     // Apply rewards to the correct validators who participated (70%)
     for validator_index in sync_committee_indices.iter() {
