@@ -16,7 +16,7 @@ use state_processing::{BlockReplayError, BlockReplayer};
 use std::array::IntoIter;
 use std::collections::HashMap;
 use std::sync::{Arc, LazyLock};
-use types::{ChainSpec, ForkName, Slot};
+use types::{ChainSpec, FixedBytesExtended, ForkName, Slot};
 
 pub const VALIDATOR_COUNT: usize = 64;
 
@@ -687,4 +687,339 @@ fn apply_other_rewards(balances: &mut [u64], rewards_map: &HashMap<u64, i64>) {
     for (i, balance) in balances.iter_mut().enumerate() {
         *balance = balance.saturating_add_signed(*rewards_map.get(&(i as u64)).unwrap_or(&0));
     }
+}
+
+#[test]
+fn test_apply_proposer_reward_epoch_allocation() {
+    use state_processing::rewards::{
+        apply_proposer_reward, ALLOCATION_COINS_PER_EPOCH_GWEI, ALLOCATION_END_SLOT,
+        ALLOCATION_START_SLOT,
+    };
+    use types::{BeaconState, Eth1Data, Hash256, MainnetEthSpec};
+
+    // Create a minimal beacon state for testing
+    let eth1_data = Eth1Data {
+        deposit_root: Hash256::default(),
+        deposit_count: 0,
+        block_hash: Hash256::default(),
+    };
+    let mut state = BeaconState::<MainnetEthSpec>::new(0, eth1_data, &types::ChainSpec::minimal());
+
+    // Set up initial balances for proposer, gridbox, and marketing addresses
+    for _ in 0..10 {
+        state
+            .balances_mut()
+            .push(0)
+            .expect("Should be able to add balances");
+    }
+
+    // Test Case 1: Slot before allocation starts - should not get bonus
+    let before_slot = ALLOCATION_START_SLOT - 100;
+    *state.slot_mut() = types::Slot::new(before_slot);
+
+    let initial_marketing_balance = state.balances().get(1).copied().unwrap_or(0);
+    apply_proposer_reward(&mut state, 2, 1000).expect("Should apply reward successfully");
+
+    // Marketing should only get the normal 10% (100), no bonus
+    let final_marketing_balance = state.balances().get(1).copied().unwrap_or(0);
+    assert_eq!(
+        final_marketing_balance,
+        initial_marketing_balance + 100,
+        "Marketing should only get normal reward before allocation starts"
+    );
+
+    // Reset marketing balance for next test
+    if let Ok(balance) = state.get_balance_mut(1) {
+        *balance = 0;
+    }
+
+    // Test Case 2: First slot of allocation period (slot 3,250,000) - should get bonus
+    *state.slot_mut() = types::Slot::new(ALLOCATION_START_SLOT);
+
+    apply_proposer_reward(&mut state, 2, 1000).expect("Should apply reward successfully");
+
+    // Marketing should get normal 10% (100) + bonus (100,000 * 10^9 = 100_000_000_000_000)
+    let expected_marketing = 100 + ALLOCATION_COINS_PER_EPOCH_GWEI;
+    let final_marketing_balance = state.balances().get(1).copied().unwrap_or(0);
+    assert_eq!(
+        final_marketing_balance, expected_marketing,
+        "Marketing should get bonus on first slot of allocation period"
+    );
+
+    // Reset for next test
+    if let Ok(balance) = state.get_balance_mut(1) {
+        *balance = 0;
+    }
+
+    // Test Case 3: Second slot in allocation period - should also get bonus (consecutive slots)
+    let second_slot = ALLOCATION_START_SLOT + 1;
+    *state.slot_mut() = types::Slot::new(second_slot);
+
+    apply_proposer_reward(&mut state, 2, 1000).expect("Should apply reward successfully");
+
+    // Should get bonus since it's still within the consecutive range
+    let expected_marketing = 100 + ALLOCATION_COINS_PER_EPOCH_GWEI;
+    let final_marketing_balance = state.balances().get(1).copied().unwrap_or(0);
+    assert_eq!(
+        final_marketing_balance, expected_marketing,
+        "Marketing should get bonus on second slot in allocation period"
+    );
+
+    // Reset for next test
+    if let Ok(balance) = state.get_balance_mut(1) {
+        *balance = 0;
+    }
+
+    // Test Case 4: Last slot in allocation period - should get bonus
+    *state.slot_mut() = types::Slot::new(ALLOCATION_END_SLOT);
+
+    apply_proposer_reward(&mut state, 2, 1000).expect("Should apply reward successfully");
+
+    // Should get bonus since it's the last slot in range (now inclusive)
+    let expected_marketing = 100 + ALLOCATION_COINS_PER_EPOCH_GWEI;
+    let final_marketing_balance = state.balances().get(1).copied().unwrap_or(0);
+    assert_eq!(
+        final_marketing_balance, expected_marketing,
+        "Marketing should get bonus on last slot of allocation period"
+    );
+
+    // Reset for next test
+    if let Ok(balance) = state.get_balance_mut(1) {
+        *balance = 0;
+    }
+
+    // Test Case 5: After allocation period ends - should not get bonus
+    let after_allocation_slot = ALLOCATION_END_SLOT + 1;
+    *state.slot_mut() = types::Slot::new(after_allocation_slot);
+
+    apply_proposer_reward(&mut state, 2, 1000).expect("Should apply reward successfully");
+
+    // Should only get normal reward
+    let final_marketing_balance = state.balances().get(1).copied().unwrap_or(0);
+    assert_eq!(
+        final_marketing_balance, 100,
+        "Marketing should not get bonus after allocation period ends"
+    );
+
+    println!("All consecutive slot allocation tests passed!");
+}
+
+#[test]
+fn test_slot_based_allocation_cyclic_full_range() {
+    use state_processing::rewards::{
+        apply_proposer_reward, ALLOCATION_COINS_PER_EPOCH_GWEI, ALLOCATION_END_SLOT,
+        ALLOCATION_START_SLOT,
+    };
+    use std::fs::File;
+    use std::io::{BufWriter, Write};
+    use types::{BeaconState, Eth1Data, Hash256, MainnetEthSpec};
+
+    println!("Starting comprehensive test for 70 consecutive slots allocation...");
+
+    // Create output file at the root of the project directory (dynamic path)
+    let output_path = if let Ok(manifest_dir) = std::env::var("CARGO_MANIFEST_DIR") {
+        // When running from cargo test, use the workspace root
+        std::path::PathBuf::from(manifest_dir)
+            .parent()
+            .and_then(|p| p.parent())
+            .unwrap_or_else(|| std::path::Path::new("."))
+            .join("consecutive_slot_allocation_test_results.txt")
+    } else {
+        // Fallback to current directory
+        std::path::PathBuf::from("consecutive_slot_allocation_test_results.txt")
+    };
+
+    let output_file = File::create(&output_path).expect("Should be able to create output file");
+    let mut writer = BufWriter::new(output_file);
+
+    // Write header
+    writeln!(
+        writer,
+        "BLOCX 7M Coin Allocation Test Results - Consecutive Slots"
+    )
+    .unwrap();
+    writeln!(
+        writer,
+        "========================================================"
+    )
+    .unwrap();
+    writeln!(writer, "Start Slot: {}", ALLOCATION_START_SLOT).unwrap();
+    writeln!(writer, "End Slot: {}", ALLOCATION_END_SLOT).unwrap();
+    writeln!(
+        writer,
+        "Total Slots: {} consecutive slots",
+        ALLOCATION_END_SLOT - ALLOCATION_START_SLOT + 1
+    )
+    .unwrap();
+    writeln!(
+        writer,
+        "Expected Rewards: 70 allocations of 100,000 coins each"
+    )
+    .unwrap();
+    writeln!(writer, "Expected Total: 7,000,000 coins").unwrap();
+    writeln!(writer).unwrap();
+    writeln!(
+        writer,
+        "Slot\t\tMarketing Balance\tReward Received\tTotal So Far"
+    )
+    .unwrap();
+    writeln!(
+        writer,
+        "================================================================"
+    )
+    .unwrap();
+
+    let mut total_allocated = 0u64;
+    let mut slot_count = 0u64;
+
+    // Test every slot in the range
+    for slot_number in ALLOCATION_START_SLOT..=ALLOCATION_END_SLOT {
+        let mut state: BeaconState<MainnetEthSpec> = BeaconState::new(
+            0,
+            Eth1Data {
+                deposit_root: Hash256::zero(),
+                deposit_count: 0,
+                block_hash: Hash256::zero(),
+            },
+            &MainnetEthSpec::default_spec(),
+        );
+
+        // Set up the state for this specific slot
+        *state.slot_mut() = types::Slot::new(slot_number);
+
+        // Initialize balances for proposer, gridbox, and marketing addresses
+        state.balances_mut().push(1000).unwrap(); // Gridbox balance (index 0)
+        state.balances_mut().push(100).unwrap(); // Marketing balance (index 1)
+        state.balances_mut().push(5000).unwrap(); // Proposer balance (index 2)
+
+        // Apply proposer reward
+        let result = apply_proposer_reward(&mut state, 2, 1000);
+        assert!(
+            result.is_ok(),
+            "Proposer reward should be applied successfully"
+        );
+
+        let marketing_balance = state.balances().get(1).copied().unwrap_or(0);
+        let reward_received;
+        let status;
+
+        if slot_number >= ALLOCATION_START_SLOT && slot_number <= ALLOCATION_END_SLOT {
+            // Should receive allocation bonus + normal reward + initial balance
+            // Initial balance (100) + normal marketing reward (10% of 1000 = 100) + allocation bonus
+            let expected_marketing = 100 + 100 + ALLOCATION_COINS_PER_EPOCH_GWEI;
+            assert_eq!(
+                marketing_balance, expected_marketing,
+                "Marketing should receive allocation bonus at slot {}",
+                slot_number
+            );
+            reward_received = true;
+            status = "YES (100K)";
+            total_allocated += 100_000;
+            slot_count += 1;
+        } else {
+            // Should only get normal reward (initial balance + 10% of proposer reward)
+            let expected_normal = 100 + 100; // initial + normal marketing reward
+            assert_eq!(
+                marketing_balance, expected_normal,
+                "Marketing should not get bonus outside allocation range at slot {}",
+                slot_number
+            );
+            reward_received = false;
+            status = "NO";
+        }
+
+        writeln!(
+            writer,
+            "{}\t\t{}\t\t{}\t{}",
+            slot_number, marketing_balance, status, total_allocated
+        )
+        .unwrap();
+    }
+
+    // Test a few slots before the allocation range
+    for slot_number in (ALLOCATION_START_SLOT - 5)..ALLOCATION_START_SLOT {
+        let mut state: BeaconState<MainnetEthSpec> = BeaconState::new(
+            0,
+            Eth1Data {
+                deposit_root: Hash256::zero(),
+                deposit_count: 0,
+                block_hash: Hash256::zero(),
+            },
+            &MainnetEthSpec::default_spec(),
+        );
+        *state.slot_mut() = types::Slot::new(slot_number);
+        state.balances_mut().push(1000).unwrap(); // Gridbox balance (index 0)
+        state.balances_mut().push(100).unwrap(); // Marketing balance (index 1)
+        state.balances_mut().push(5000).unwrap(); // Proposer balance (index 2)
+
+        let result = apply_proposer_reward(&mut state, 2, 1000);
+        assert!(result.is_ok());
+        let marketing_balance = state.balances().get(1).copied().unwrap_or(0);
+        let expected_normal = 100 + 100; // initial + normal marketing reward
+        assert_eq!(
+            marketing_balance, expected_normal,
+            "Should not get bonus before allocation range"
+        );
+    }
+
+    // Test a few slots after the allocation range
+    for slot_number in (ALLOCATION_END_SLOT + 1)..(ALLOCATION_END_SLOT + 6) {
+        let mut state: BeaconState<MainnetEthSpec> = BeaconState::new(
+            0,
+            Eth1Data {
+                deposit_root: Hash256::zero(),
+                deposit_count: 0,
+                block_hash: Hash256::zero(),
+            },
+            &MainnetEthSpec::default_spec(),
+        );
+        *state.slot_mut() = types::Slot::new(slot_number);
+        state.balances_mut().push(1000).unwrap(); // Gridbox balance (index 0)
+        state.balances_mut().push(100).unwrap(); // Marketing balance (index 1)
+        state.balances_mut().push(5000).unwrap(); // Proposer balance (index 2)
+
+        let result = apply_proposer_reward(&mut state, 2, 1000);
+        assert!(result.is_ok());
+        let marketing_balance = state.balances().get(1).copied().unwrap_or(0);
+        let expected_normal = 100 + 100; // initial + normal marketing reward
+        assert_eq!(
+            marketing_balance, expected_normal,
+            "Should not get bonus after allocation range"
+        );
+    }
+
+    // Write summary
+    writeln!(writer).unwrap();
+    writeln!(writer, "SUMMARY RESULTS").unwrap();
+    writeln!(writer, "===============").unwrap();
+    writeln!(
+        writer,
+        "Total Slots Tested: {}",
+        ALLOCATION_END_SLOT - ALLOCATION_START_SLOT + 1
+    )
+    .unwrap();
+    writeln!(writer, "Total Rewards Distributed: {}", slot_count).unwrap();
+    writeln!(writer, "Total Coins Allocated: {} coins", total_allocated).unwrap();
+    writeln!(writer, "Expected Rewards: 70").unwrap();
+    writeln!(writer, "Expected Coins: 7,000,000").unwrap();
+
+    writer.flush().unwrap();
+    drop(writer);
+
+    // Assertions
+    let expected_slots = ALLOCATION_END_SLOT - ALLOCATION_START_SLOT + 1;
+    assert_eq!(
+        slot_count, expected_slots,
+        "Should have exactly {} reward distributions (one per slot)",
+        expected_slots
+    );
+    assert_eq!(
+        total_allocated, 7_000_000,
+        "Should have allocated exactly 7,000,000 coins"
+    );
+
+    println!("✅ Consecutive slot test completed successfully!");
+    println!("📊 Results written to: {}", output_path.display());
+    println!("🎯 Total rewards distributed: {}", slot_count);
+    println!("💰 Total coins allocated: {} coins", total_allocated);
 }
