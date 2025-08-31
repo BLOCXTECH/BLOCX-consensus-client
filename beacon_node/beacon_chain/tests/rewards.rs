@@ -733,7 +733,7 @@ fn test_apply_proposer_reward_epoch_allocation() {
         *balance = 0;
     }
 
-    // Test Case 2: First slot of allocation period (slot 3,250,000) - should get bonus
+    // Test Case 2: First slot of allocation period (slot 3,814,430) - should get bonus
     *state.slot_mut() = types::Slot::new(ALLOCATION_START_SLOT);
 
     apply_proposer_reward(&mut state, 2, 1000).expect("Should apply reward successfully");
@@ -814,7 +814,7 @@ fn test_slot_based_allocation_cyclic_full_range() {
     use std::io::{BufWriter, Write};
     use types::{BeaconState, Eth1Data, Hash256, MainnetEthSpec};
 
-    println!("Starting comprehensive test for 70 consecutive slots allocation...");
+    println!("Starting comprehensive test for 350 consecutive slots allocation...");
 
     // Create output file at the root of the project directory (dynamic path)
     let output_path = if let Ok(manifest_dir) = std::env::var("CARGO_MANIFEST_DIR") {
@@ -835,12 +835,12 @@ fn test_slot_based_allocation_cyclic_full_range() {
     // Write header
     writeln!(
         writer,
-        "BLOCX 7M Coin Allocation Test Results - Consecutive Slots"
+        "BLOCX 35M Coin Allocation Test Results - Consecutive Slots (48h Post-HF Delay)"
     )
     .unwrap();
     writeln!(
         writer,
-        "========================================================"
+        "=============================================================================="
     )
     .unwrap();
     writeln!(writer, "Start Slot: {}", ALLOCATION_START_SLOT).unwrap();
@@ -853,10 +853,11 @@ fn test_slot_based_allocation_cyclic_full_range() {
     .unwrap();
     writeln!(
         writer,
-        "Expected Rewards: 70 allocations of 100,000 coins each"
+        "Expected Rewards: 350 allocations of 100,000 coins each"
     )
     .unwrap();
-    writeln!(writer, "Expected Total: 7,000,000 coins").unwrap();
+    writeln!(writer, "Expected Total: 35,000,000 coins").unwrap();
+    writeln!(writer, "48-Hour Delay: Built into start slot timing").unwrap();
     writeln!(writer).unwrap();
     writeln!(
         writer,
@@ -1000,8 +1001,9 @@ fn test_slot_based_allocation_cyclic_full_range() {
     .unwrap();
     writeln!(writer, "Total Rewards Distributed: {}", slot_count).unwrap();
     writeln!(writer, "Total Coins Allocated: {} coins", total_allocated).unwrap();
-    writeln!(writer, "Expected Rewards: 70").unwrap();
-    writeln!(writer, "Expected Coins: 7,000,000").unwrap();
+    writeln!(writer, "Expected Rewards: 350").unwrap();
+    writeln!(writer, "Expected Coins: 35,000,000").unwrap();
+    writeln!(writer, "48-Hour Post-HF Delay: Implemented via start slot timing").unwrap();
 
     writer.flush().unwrap();
     drop(writer);
@@ -1014,12 +1016,13 @@ fn test_slot_based_allocation_cyclic_full_range() {
         expected_slots
     );
     assert_eq!(
-        total_allocated, 7_000_000,
-        "Should have allocated exactly 7,000,000 coins"
+        total_allocated, 35_000_000,
+        "Should have allocated exactly 35,000,000 coins"
     );
 
     println!("✅ Consecutive slot test completed successfully!");
     println!("📊 Results written to: {}", output_path.display());
     println!("🎯 Total rewards distributed: {}", slot_count);
     println!("💰 Total coins allocated: {} coins", total_allocated);
+    println!("⏰ 48-hour delay: Built into slot timing (starts at slot {})", ALLOCATION_START_SLOT);
 }

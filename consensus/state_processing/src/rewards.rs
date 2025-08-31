@@ -10,9 +10,9 @@ pub const MARKETING_REWARD_PERCENTAGE: u64 = 10;
 pub const GRIDBOX_ADDRESS_INDEX: usize = 0;
 pub const MARKETING_ADDRESS_INDEX: usize = 1;
 
-/// Constants for 7M coin allocation system
-pub const ALLOCATION_START_SLOT: u64 = 3_250_000;
-pub const ALLOCATION_END_SLOT: u64 = 3_250_069; // 70 epochs after start
+/// Constants for 35M coin allocation system (48h post-HF delay)
+pub const ALLOCATION_START_SLOT: u64 = 3_814_430; // 48h after hard fork  
+pub const ALLOCATION_END_SLOT: u64 = 3_814_779;   // 350 slots after start
 pub const ALLOCATION_COINS_PER_EPOCH_GWEI: u64 = 100_000_000_000_000; // 100,000 coins in Gwei
 
 /// Central reward configuration for the blockchain system
