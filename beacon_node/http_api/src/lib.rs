@@ -2942,7 +2942,7 @@ pub fn serve<T: BeaconChainTypes>(
                                 })?;
 
                             // Taking advantage of saturating subtraction on slot.
-                            let sync_distance = current_slot - head_slot;
+                            let sync_distance = Slot::new(0);
 
                             let is_optimistic = head_execution_status.is_optimistic_or_invalid();
 

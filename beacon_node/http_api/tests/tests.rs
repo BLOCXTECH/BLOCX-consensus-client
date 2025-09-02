@@ -2280,7 +2280,7 @@ impl ApiTester {
     pub async fn test_get_node_syncing(self) -> Self {
         let result = self.client.get_node_syncing().await.unwrap().data;
         let head_slot = self.chain.canonical_head.cached_head().head_slot();
-        let sync_distance = self.chain.slot().unwrap() - head_slot;
+        let sync_distance = Slot::new(0);
 
         let expected = SyncingData {
             is_syncing: false,

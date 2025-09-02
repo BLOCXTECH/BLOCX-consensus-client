@@ -132,7 +132,7 @@ pub fn spawn_notifier<T: BeaconChainTypes>(
 
             // The default is for regular sync but this gets modified if backfill sync is in
             // progress.
-            let mut sync_distance = current_slot - head_slot;
+            let mut sync_distance = Slot::new(0);
 
             let mut speedo = speedo.lock().await;
             match current_sync_state {

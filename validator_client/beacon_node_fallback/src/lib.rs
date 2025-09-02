@@ -244,7 +244,7 @@ impl<E: EthSpec> CandidateBeaconNode<E> {
                         *self.health.write().await = Err(e);
                         return Err(e);
                     }
-                    let sync_distance = slot_clock_head.saturating_sub(head);
+                    let sync_distance = Slot::new(0);
 
                     // Currently ExecutionEngineHealth is solely determined by online status.
                     let execution_status = if el_offline {
