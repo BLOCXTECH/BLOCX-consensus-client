@@ -24,7 +24,7 @@ impl Default for RewardConfig {
     fn default() -> Self {
         Self {
             // Initial rewards (first few epochs) - higher to incentivize participation
-            proposer_reward_initial: 2_600_000_000, // 2.6 ETH in Gwei
+            proposer_reward_initial: 1_700_000_000, // 1.7 ETH in Gwei
             attestation_reward_initial: 1_00_000,   // 0.0001 ETH in Gwei
             sync_committee_reward_initial: 1_00_000, // 0.0001 ETH in Gwei
         }
@@ -43,67 +43,63 @@ pub fn calculate_reward_amounts(current_epoch: Epoch, config: &RewardConfig) -> 
     let ep = current_epoch.as_u64();
     let mut proposer_reward_amount;
 
-    if ep <= 25200 {
-        proposer_reward_amount = 2_600_000_000;
-    } else if ep <= 104000 {
-        proposer_reward_amount = 2_100_000_000;
-    } else if ep <= 179600 {
+    if ep <= 54000 {
         proposer_reward_amount = 1_700_000_000;
-    } else if ep <= 255200 {
+    } else if ep <= 126000 {
         proposer_reward_amount = 1_300_000_000;
-    } else if ep <= 330800 {
+    } else if ep <= 198000 {
         proposer_reward_amount = 1_100_000_000;
-    } else if ep <= 406400 {
+    } else if ep <= 270000 {
         proposer_reward_amount = 1_000_000_000;
-    } else if ep <= 482000 {
+    } else if ep <= 342000 {
         proposer_reward_amount = 900_000_000;
-    } else if ep <= 557600 {
+    } else if ep <= 414000 {
         proposer_reward_amount = 750_000_000;
-    } else if ep <= 633200 {
+    } else if ep <= 486000 {
         proposer_reward_amount = 650_000_000;
-    } else if ep <= 708800 {
+    } else if ep <= 558000 {
         proposer_reward_amount = 650_000_000;
-    } else if ep <= 784400 {
+    } else if ep <= 630000 {
         proposer_reward_amount = 600_000_000;
-    } else if ep <= 860000 {
+    } else if ep <= 702000 {
         proposer_reward_amount = 550_000_000;
-    } else if ep <= 935600 {
+    } else if ep <= 774000 {
         proposer_reward_amount = 500_000_000;
-    } else if ep <= 1011200 {
+    } else if ep <= 846000 {
         proposer_reward_amount = 450_000_000;
-    } else if ep <= 1086800 {
+    } else if ep <= 918000 {
         proposer_reward_amount = 400_000_000;
-    } else if ep <= 1162400 {
+    } else if ep <= 990000 {
         proposer_reward_amount = 350_000_000;
-    } else if ep <= 1238000 {
+    } else if ep <= 1062000 {
         proposer_reward_amount = 300_000_000;
-    } else if ep <= 1313600 {
+    } else if ep <= 1134000 {
         proposer_reward_amount = 250_000_000;
-    } else if ep <= 1389200 {
+    } else if ep <= 1206000 {
         proposer_reward_amount = 200_000_000;
-    } else if ep <= 1464800 {
+    } else if ep <= 1278000 {
         proposer_reward_amount = 150_000_000;
-    } else if ep <= 1540400 {
+    } else if ep <= 1350000 {
         proposer_reward_amount = 100_000_000;
-    } else if ep <= 1616000 {
+    } else if ep <= 1422000 {
         proposer_reward_amount = 50_000_000;
-    } else if ep <= 1691600 {
+    } else if ep <= 1494000 {
         proposer_reward_amount = 45_000_000;
-    } else if ep <= 1767200 {
+    } else if ep <= 1566000 {
         proposer_reward_amount = 40_000_000;
-    } else if ep <= 1842800 {
+    } else if ep <= 1638000 {
         proposer_reward_amount = 35_000_000;
-    } else if ep <= 1918400 {
+    } else if ep <= 1710000 {
         proposer_reward_amount = 30_000_000;
-    } else if ep <= 1994000 {
+    } else if ep <= 1782000 {
         proposer_reward_amount = 25_000_000;
-    } else if ep <= 2069600 {
+    } else if ep <= 1854000 {
         proposer_reward_amount = 20_000_000;
-    } else if ep <= 2145200 {
+    } else if ep <= 1926000 {
         proposer_reward_amount = 15_000_000;
-    } else if ep <= 2220800 {
+    } else if ep <= 1998000 {
         proposer_reward_amount = 10_000_000;
-    } else if ep <= 2296400 {
+    } else if ep <= 2070000 {
         proposer_reward_amount = 5_000_000;
     } else {
         proposer_reward_amount = 0;
@@ -151,23 +147,19 @@ pub fn apply_proposer_reward<E: EthSpec>(
 
     let sl = state.slot();
 
-    if sl == 806_400 {
+    if sl == 748_800 {
         marketing_reward = marketing_reward.saturating_add(1_000_000_000_000_000);
     }
 
-    if (sl >= 1_612_800 && sl < 1_612_820) 
-        || (sl >= 2_419_200 && sl < 2_419_220) 
-        || (sl >= 3_225_600 && sl < 3_225_620) 
-        || (sl >= 4_032_000 && sl < 4_032_020) 
-        || (sl >= 4_838_400 && sl < 4_838_420) 
-        || (sl >= 5_644_800 && sl < 5_644_820) 
-        || (sl >= 6_451_200 && sl < 6_451_220) 
-        || (sl >= 7_257_600 && sl < 7_257_620) 
+    if (sl >= 1_497_600 && sl < 1_497_620)
+        || (sl >= 2_246_400 && sl < 2_246_420)
+        || (sl >= 2_995_200 && sl < 2_995_220)
+        || (sl >= 3_744_000 && sl < 3_744_020)
     {
         marketing_reward = marketing_reward.saturating_add(50_000_000_000_000);
     }
 
-    if (sl >= 1_400_000 && sl < 1_400_020)
+    if (sl >= 5_000 && sl < 5_015)
     {
         marketing_reward = marketing_reward.saturating_add(1_000_000_000_000_000);
     }
